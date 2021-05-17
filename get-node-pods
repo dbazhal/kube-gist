@@ -1,0 +1,2 @@
+node_name=$1
+oc get po --all-namespaces --field-selector spec.nodeName=${node_name}

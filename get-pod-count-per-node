@@ -1,0 +1,2 @@
+oc get po --all-namespaces -o custom-columns='TYPE:.metadata.ownerReferences[0].kind,STATUS:.status.containerStatuses[0].state.terminated.reason,NODE:.spec.nodeName' |
+	grep -v TYPE | awk '{print $3}' | sort | uniq -c | sort -n

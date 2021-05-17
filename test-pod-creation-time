@@ -1,0 +1,38 @@
+#!/bin/bash
+IFS=', ' read -r -a nodes <<< "$(echo $(oc get node | awk '{print $1}' | grep -v NAME | grep -v master))"
+size=${#nodes[@]}
+arg_node=$1
+
+function clean {
+	oc delete po ${pod_name} >/dev/null 2>&1
+}
+trap clean EXIT
+pod_name=test-$(python -c 'import string; import random; print("".join(random.choice(string.ascii_lowercase) for _ in range(10)))')
+
+while :; do
+	index=$(python -c "import random; print(random.randint(0, ${size} - 1))")
+        if test -n "$arg_node"; then
+		node=$arg_node
+	else
+		node=${nodes[$index]}
+	fi
+
+	oc delete po ${pod_name} --force >/dev/null 2>&1 && sleep 3
+
+        pod_name=test-$(python -c 'import string; import random; print("".join(random.choice(string.ascii_lowercase) for _ in range(10)))')
+
+	override_arg=--overrides='{"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchFields":[{"key":"metadata.name","operator":"In","values":["'$node'"]}]}]}}}}}'
+
+	node_time=$({ time -p kubectl run -r 1 --generator run-pod/v1 -ti --restart=Never --image=artifactory.tutu.ru:443/docker-common/bash \
+		--requests=cpu=500m,memory=256Mi --limits=cpu=1000m,memory=512Mi ${pod_name} $override_arg \
+		-- -c "sleep 3; echo true"; } 2>&1 | grep real | awk '{print $2}' | cut -d ',' -f1)
+
+        if test $node_time -gt 7; then
+		echo
+		echo $node took $node_time
+		oc describe po ${pod_name} | grep -A15 'Events:'
+		echo -e '\n-------------------\n'
+	else
+		echo $node OK
+	fi
+done

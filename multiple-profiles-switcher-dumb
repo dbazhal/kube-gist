@@ -1,0 +1,20 @@
+#!/bin/bash
+kube_name=$1
+orig_homedir=$(eval "echo ~$USER")
+home_dir=${orig_homedir}/.kube_${kube_name}
+echo "Kube dir ${home_dir}"
+
+if ! test -d ${home_dir}; then
+	mkdir ${home_dir};
+fi
+
+export HOME=${home_dir}
+export PS1="${kube_name} | \w # "
+
+if ! test -d ${home_dir}/.kube; then
+	echo "No kube config; login with 'oc login'";
+else
+	oc status
+fi
+
+alias deact="export HOME=${orig_homedir}; source ~/.profile"
